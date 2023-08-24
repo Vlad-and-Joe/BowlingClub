@@ -13,7 +13,7 @@ RESPONSE=$(curl -s http://localhost:3000/)
 if [[ "$RESPONSE" == "Joey Sucks!" ]]; then
   echo "${GREEN}PASSED${NC}\n"
 else
-  echo "${RED}FAILED${NC} - Expected 'Hello World!' but got '$RESPONSE'\n"
+  echo "${RED}FAILED${NC} - Expected 'Joey Sucks!' but got '$RESPONSE'\n"
 fi
 
 # Test sending a message
