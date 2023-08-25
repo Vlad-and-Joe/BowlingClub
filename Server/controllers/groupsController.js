@@ -52,7 +52,7 @@ exports.createGroup = (req, res) => {
     if (!recipients || recipients.length === 0)
         return res.status(400).json({ error: "You must specify at least one recipient." });
 
-    // First, create the group
+    // create the group
     db.serialize(() => {
         const stmtGroup = db.prepare("INSERT INTO groups (name) VALUES (?)");
         stmtGroup.run(group_name, function(err) {
@@ -61,16 +61,16 @@ exports.createGroup = (req, res) => {
 
             const groupId = this.lastID;
 
-            // Now, add members to the group
+            // add members to the group
             const stmtMembers = db.prepare("INSERT INTO group_members (group_id, user_id) VALUES (?, ?)");
             recipients.forEach((recipient) => {
                 stmtMembers.run(groupId, recipient, (err) => {
                     if (err)
-                        console.error(err); // logging the error but not stopping the process
+                        console.error(err);
                 });
             });
 
-            stmtMembers.finalize(); // Close the statement
+            stmtMembers.finalize();
             res.json({ success: true, group_id: groupId });
         });
     });
