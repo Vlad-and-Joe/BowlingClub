@@ -12,8 +12,8 @@ const express = require('express');
 const router = express.Router();
 const groupsController = require('../controllers/groupsController.js');
 
-router.post('/sendToGroup', groupsController.sendToGroup);
-router.get('/getGroupMessages', groupsController.getGroupMessages);
+router.post('/sendGroupMessage', groupsController.sendMessageToGroup);
+router.get('/getGroupMessages', groupsController.getMessagesForGroup);
 router.post('/createGroup', groupsController.createGroup);
 router.get('/listUserGroups', groupsController.listUserGroups);
 router.post('/removeUserFromGroup', groupsController.removeUserFromGroup);

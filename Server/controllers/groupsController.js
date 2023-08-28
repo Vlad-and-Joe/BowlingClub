@@ -12,89 +12,93 @@
 const db = require('../models/db');
 
 // Send a message to a group
-exports.sendToGroup = (req, res) => {
-    const { sender, group_id, message } = req.body;
-    // Check if group exists
-    db.get("SELECT id FROM groups WHERE id = ?", [group_id], (err, row) => {
-        if(err)
-            return res.status(500).json({ error: err.message });
-        if(!row)
-            return res.status(400).json({ error: "Group doesn't exist." });
-        // Check if the group has members
-        db.get("SELECT user_id FROM group_members WHERE group_id = ?", [group_id], (err, memberRow) => {
-            if(err)
-                return res.status(500).json({ error: err.message });
-            if(!memberRow)
-                return res.status(400).json({ error: "Group has no members." });
-            // Send the message
-            const stmt = db.prepare("INSERT INTO messages (sender, group_id, message) VALUES (?, ?, ?)");
-            stmt.run(sender, group_id, message, (err) => {
-                if(err)
-                    return res.status(500).json({ error: err.message });
-                res.json({ success: true, message_id: this.lastID });
-            });
-        });
-    });
-};
-
-// Retrieve messages from a group
-exports.getGroupMessages = (req, res) => {
-    const { group_id } = req.query;
-    db.all("SELECT * FROM messages WHERE group_id = ?", [group_id], (err, rows) => {
-        if(err)
-            return res.status(500).json({ error: err.message });
-        res.json({ messages: rows });
-    });
-}
-
-exports.createGroup = (req, res) => {
-    const { group_name, recipients } = req.body;
-    if (!recipients || recipients.length === 0)
-        return res.status(400).json({ error: "You must specify at least one recipient." });
-
-    // create the group
-    db.serialize(() => {
-        const stmtGroup = db.prepare("INSERT INTO groups (name) VALUES (?)");
-        stmtGroup.run(group_name, function(err) {
-            if (err)
-                return res.status(500).json({ error: err.message });
-
-            const groupId = this.lastID;
-
-            // add members to the group
-            const stmtMembers = db.prepare("INSERT INTO group_members (group_id, user_id) VALUES (?, ?)");
-            recipients.forEach((recipient) => {
-                stmtMembers.run(groupId, recipient, (err) => {
-                    if (err)
-                        console.error(err);
-                });
-            });
-
-            stmtMembers.finalize();
-            res.json({ success: true, group_id: groupId });
-        });
-    });
-};
-
-
-exports.listUserGroups = (req, res) => {
-    const { user_id } = req.query;
-    db.all("SELECT groups.id, groups.name FROM groups JOIN group_members ON groups.id = group_members.group_id WHERE group_members.user_id = ?", [user_id], (err, rows) => {
-        if(err)
-            return res.status(500).json({ error: err.message });
-        res.json({ groups: rows });
-    });
-};
-
-exports.removeUserFromGroup = (req, res) => {
-    const { user_id, group_id } = req.body;
-    const stmt = db.prepare("DELETE FROM group_members WHERE user_id = ? AND group_id = ?");
-    stmt.run(user_id, group_id, (err) => {
-        if(err)
+exports.sendMessageToGroup = (req, res) => {
+    const { sender_id, group_id, message } = req.body;
+    const stmt = db.prepare("INSERT INTO group_messages (sender_id, group_id, message) VALUES (?, ?, ?)");
+    stmt.run(sender_id, group_id, message, (err) => {
+        if (err)
             return res.status(500).json({ error: err.message });
         res.json({ success: true });
     });
 };
+
+
+exports.getMessagesForGroup = (req, res) => {
+    const group_id = req.query.group_id;
+    const sql = `
+        SELECT gm.id, a.id as sender_id, a.name AS sender_name, gm.message
+        FROM group_messages gm
+        JOIN accounts a ON gm.sender_id = a.id
+        WHERE gm.group_id = ?`;
+    db.all(sql, [group_id], (err, rows) => {
+        if (err)
+            return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+};
+
+
+exports.createGroup = (req, res) => {
+    const { creator_id, group_name, recipient_ids } = req.body;
+
+    if (!group_name || !creator_id || !Array.isArray(recipient_ids))
+        return res.status(400).json({ error: 'Invalid request body' });
+
+    // Check if creator and all recipients are valid accounts
+    const allIds = [creator_id, ...recipient_ids];
+    const placeholders = allIds.map(() => '?').join(', ');
+
+    db.all(`SELECT id FROM accounts WHERE id IN (${placeholders})`, allIds, (err, rows) => {
+        if (err)
+            return res.status(500).json({ error: err.message });
+        if (rows.length !== allIds.length)
+            return res.status(400).json({ error: 'Invalid account id(s)' });
+        // Insert the new group
+        const stmt = db.prepare("INSERT INTO groups (group_name, creator_id) VALUES (?, ?)");
+        stmt.run(group_name, creator_id, function(err) {
+            if (err)
+                return res.status(500).json({ error: err.message });
+
+            const groupId = this.lastID;
+            // Insert the creator and all recipients into the group_members table
+            const groupMemberValues = allIds.map(id => `(${groupId}, ${id})`).join(', ');
+            db.run(`INSERT INTO group_members (group_id, user_id) VALUES ${groupMemberValues}`, [], function(err) {
+                if (err)
+                    return res.status(500).json({ error: err.message });
+                res.json({ success: true, groupId });
+            });
+        });
+    });
+};
+
+
+
+
+exports.listUserGroups = (req, res) => {
+    const user_id = req.query.user_id;
+    const sql = `
+        SELECT g.id, g.name
+        FROM groups g
+        JOIN group_members gm ON g.id = gm.group_id
+        WHERE gm.user_id = ?`;
+    db.all(sql, [user_id], (err, rows) => {
+        if (err)
+            return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+};
+
+
+exports.removeUserFromGroup = (req, res) => {
+    const { user_id, group_id } = req.body;
+    const stmt = db.prepare("DELETE FROM group_members WHERE user_id=? AND group_id=?");
+    stmt.run(user_id, group_id, (err) => {
+        if (err)
+            return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
+};
+
 
 exports.deleteGroup = (req, res) => {
     const { group_id } = req.body;
@@ -107,10 +111,16 @@ exports.deleteGroup = (req, res) => {
 };
 
 exports.listGroupMembers = (req, res) => {
-    const { group_id } = req.query;
-    db.all("SELECT user_id FROM group_members WHERE group_id = ?", [group_id], (err, rows) => {
-        if(err)
+    const group_id = req.query.group_id;
+    const sql = `
+        SELECT a.id, a.name
+        FROM accounts a
+        JOIN group_members gm ON a.id = gm.user_id
+        WHERE gm.group_id = ?`;
+    db.all(sql, [group_id], (err, rows) => {
+        if (err)
             return res.status(500).json({ error: err.message });
-        res.json({ members: rows });
+        res.json(rows);
     });
 };
+

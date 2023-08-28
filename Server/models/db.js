@@ -13,11 +13,38 @@ const sqlite3 = require('sqlite3').verbose();
 // Setting Up SQLite Database
 const db = new sqlite3.Database('./database.db');
 
-// Create messages table
-db.run("CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, sender TEXT, recipient TEXT, message TEXT, group_id INTEGER, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)");
+// Create accounts table
+accounts_table_sql = "CREATE TABLE IF NOT EXISTS accounts (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL, password TEXT NOT NULL)"
 
-// Create groups table
-db.run("CREATE TABLE IF NOT EXISTS groups (id INTEGER PRIMARY KEY, name TEXT)");
-db.run("CREATE TABLE IF NOT EXISTS group_members (user_id TEXT, group_id INTEGER, FOREIGN KEY (group_id) REFERENCES groups(id))")
+messages_table_sql = "CREATE TABLE IF NOT EXISTS messages (\
+    id INTEGER PRIMARY KEY,\
+    sender_id INTEGER REFERENCES accounts(id),\
+    recipient_id INTEGER REFERENCES accounts(id),\
+    message TEXT NOT NULL,\
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)"
+
+group_messages_table_sql = "CREATE TABLE IF NOT EXISTS group_messages (\
+    id INTEGER PRIMARY KEY,\
+    sender_id INTEGER REFERENCES accounts(id),\
+    group_id INTEGER REFERENCES groups(id),\
+    message TEXT NOT NULL,\
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)"
+
+groups_table_sql = "CREATE TABLE IF NOT EXISTS groups (\
+    id INTEGER PRIMARY KEY,\
+    group_name TEXT NOT NULL UNIQUE,\
+    creator_id INTEGER REFERENCES accounts(id))"
+
+group_members_table_sql = "CREATE TABLE IF NOT EXISTS group_members (\
+    group_id INTEGER REFERENCES groups(id),\
+    user_id INTEGER REFERENCES accounts(id),\
+    PRIMARY KEY (group_id, user_id))"
+
+
+db.run(accounts_table_sql);
+db.run(messages_table_sql);
+db.run(group_messages_table_sql);
+db.run(groups_table_sql);
+db.run(group_members_table_sql);
 
 module.exports = db;

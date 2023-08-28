@@ -13,6 +13,7 @@ const bodyParser = require('body-parser');
 const loggingMiddleware = require('./middleware/logging');
 const messagesRoutes = require('./routes/messages');
 const groupsRoutes = require('./routes/groups');
+const accountsRoutes = require('./routes/accounts');
 
 const app = express();
 const PORT = 3000;
@@ -22,12 +23,15 @@ const PORT = 3000;
 //////////////////////
 
 app.use(bodyParser.json());
-app.use(loggingMiddleware);
+app.use(loggingMiddleware.fileLoggingMiddleware);
+// UNCOMMENT FOR LOGGING TO THE CONSOLE AS WELL AS FILE
+// app.use(loggingMiddleware.consoleLoggingMiddleware);
 
 //////////////////////
 // Define Endpoints //
 //////////////////////
 
+app.use('/accounts', accountsRoutes);
 app.use('/messages', messagesRoutes);
 app.use('/groups', groupsRoutes);
 

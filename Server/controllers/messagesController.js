@@ -11,23 +11,37 @@
 
 const db = require('../models/db');
 
-// Send a message
-exports.send = (req, res) => {
-    const { sender, recipient, message } = req.body;
-    const stmt = db.prepare("INSERT INTO messages (sender, recipient, message) VALUES (?, ?, ?)");
-    stmt.run(sender, recipient, message, (err) => {
-        if(err)
-            return res.status(500).json({ error: err.message });
-        res.json({ success: true, messageID: this.lastID });
-    });
-}
+exports.sendMessage = (req, res) => {
+    const { sender_id, recipient_id, message } = req.body;
 
-// Retrieve messages for a recipient
-exports.getAll = (req, res) => {
-    const { recipient } = req.query;
-    db.all("SELECT * FROM messages WHERE recipient = ?", [recipient], (err, rows) => {
-        if(err)
+    // Check if the sender and recipient accounts exist
+    db.all('SELECT id FROM accounts WHERE id IN (?, ?)', [sender_id, recipient_id], (err, rows) => {
+        if (err)
+            return res.status(500).json({ error: err.message });
+        if (rows.length !== 2)
+            return res.status(400).json({ error: 'Invalid sender or recipient id' });
+
+        const stmt = db.prepare("INSERT INTO messages (sender_id, recipient_id, message) VALUES (?, ?, ?)");
+        stmt.run(sender_id, recipient_id, message, (err) => {
+            if (err)
+                return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        });
+    });
+};
+
+
+exports.retrieveMessages = (req, res) => {
+    const recipientId = req.query.recipient_id;
+
+    if (!recipientId)
+        return res.status(400).json({ error: 'Recipient ID is required' });
+
+    // Retrieve all messages sent to the specified recipient
+    db.all('SELECT * FROM messages WHERE recipient_id = ?', [recipientId], (err, rows) => {
+        if (err)
             return res.status(500).json({ error: err.message });
         res.json({ messages: rows });
     });
-}
+};
+

@@ -20,6 +20,9 @@ const accessLogStream = rfs.createStream('request.log', {
 });
 
 // Setup morgan to use the rotating file stream and combined log format
-const loggingMiddleware = morgan('combined', {stream: accessLogStream});
+const fileLoggingMiddleware = morgan('combined', {stream: accessLogStream});
 
-module.exports = loggingMiddleware;
+// Setup morgan to use the console and combined log format
+const consoleLoggingMiddleware = morgan('combined');
+
+module.exports = { consoleLoggingMiddleware, fileLoggingMiddleware, accessLogStream };

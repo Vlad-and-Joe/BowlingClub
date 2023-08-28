@@ -13,7 +13,7 @@ const router = express.Router();
 const messagesController = require('../controllers/messagesController');
 
 // Single Messaging
-router.post('/send', messagesController.send);
-router.get('/retrieve', messagesController.getAll);
+router.post('/send', messagesController.sendMessage);
+router.get('/retrieve', messagesController.retrieveMessages);
 
 module.exports = router;
